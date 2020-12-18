@@ -1,8 +1,14 @@
 
-[_zend_utility_functions](zend_utility_functions.md)   
-[]
+[_zend_utility_functions](zend_utility_functions.md)     
+
 ```   
-code fileName:main/main.c 
+code fileName:main/main.c   
+
+BEGIN_EXTERN_C()
+extern SAPI_API sapi_module_struct sapi_module;  /* true global */
+END_EXTERN_C()
+
+
 int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_modules, uint num_additional_modules)
 {
 	zend_utility_functions zuf;
@@ -19,25 +25,7 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 #ifdef PHP_WIN32
 	php_os = "WINNT";
 
-	old_invalid_parameter_handler =
-		_set_invalid_parameter_handler(dummy_invalid_parameter_handler);
-	if (old_invalid_parameter_handler != NULL) {
-		_set_invalid_parameter_handler(old_invalid_parameter_handler);
-	}
-
-	/* Disable the message box for assertions.*/
-	_CrtSetReportMode(_CRT_ASSERT, 0);
-#else
-	php_os = PHP_OS;
-#endif
-
-#ifdef ZTS
-	(void)ts_resource(0);
-#endif
-
-#ifdef PHP_WIN32
-	php_win32_init_rng_lock();
-#endif
+	
 
 	module_shutdown = 0;
 	module_startup = 1;
@@ -52,13 +40,7 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 
 	php_output_startup();
 
-#ifdef ZTS
-	ts_allocate_id(&core_globals_id, sizeof(php_core_globals), (ts_allocate_ctor) core_globals_ctor, (ts_allocate_dtor) core_globals_dtor);
-	php_startup_ticks();
-#ifdef PHP_WIN32
-	ts_allocate_id(&php_win32_core_globals_id, sizeof(php_win32_core_globals), (ts_allocate_ctor) php_win32_core_globals_ctor, (ts_allocate_dtor) php_win32_core_globals_dtor);
-#endif
-#else
+
 	memset(&core_globals, 0, sizeof(core_globals));
 	php_startup_ticks();
 #endif
@@ -98,6 +80,7 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 
 	le_index_ptr = zend_register_list_destructors_ex(NULL, NULL, "index pointer", 0);
 
+//这些常量在php脚本里都能访问
 	/* Register constants */
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_VERSION", PHP_VERSION, sizeof(PHP_VERSION)-1, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_LONG_CONSTANT("PHP_MAJOR_VERSION", PHP_MAJOR_VERSION, CONST_PERSISTENT | CONST_CS);
