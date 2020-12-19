@@ -29,9 +29,15 @@ int zend_load_extension(const char *path)
 {
 #if ZEND_EXTENSIONS_SUPPORT
 	DL_HANDLE handle;
+	//声明和定义在zend_extensions.h头文件中
 	zend_extension *new_extension;
+
 	zend_extension_version_info *extension_version_info;
 
+	//直接打开动态库文件
+	//https://www.cnblogs.com/Anker/p/3746802.html  资料说明
+	//https://blog.csdn.net/test1280/article/details/78306142
+	//DL_LOAD 声明和定义在zend_protablility.h头文件中
 	handle = DL_LOAD(path);
 	if (!handle) {
 #ifndef ZEND_WIN32
@@ -44,20 +50,25 @@ int zend_load_extension(const char *path)
 		return FAILURE;
 	}
 
+	//调用动态库里的函数extension_version_info  如果扩展的库有此函数的话
+	//实质是dlsym函数获取动态库中的函数
 	extension_version_info = (zend_extension_version_info *) DL_FETCH_SYMBOL(handle, "extension_version_info");
 	if (!extension_version_info) {
 		extension_version_info = (zend_extension_version_info *) DL_FETCH_SYMBOL(handle, "_extension_version_info");
 	}
+	//拿到动态库的zend_extension_entry函数
 	new_extension = (zend_extension *) DL_FETCH_SYMBOL(handle, "zend_extension_entry");
 	if (!new_extension) {
 		new_extension = (zend_extension *) DL_FETCH_SYMBOL(handle, "_zend_extension_entry");
 	}
+	//扩展信息，或zend_extension_entry不存在就报错误提示
 	if (!extension_version_info || !new_extension) {
 		fprintf(stderr, "%s doesn't appear to be a valid Zend extension\n", path);
 /* See http://support.microsoft.com/kb/190351 */
 #ifdef ZEND_WIN32
 		fflush(stderr);
 #endif
+		//并关闭动态链接库
 		DL_UNLOAD(handle);
 		return FAILURE;
 	}
@@ -202,6 +213,8 @@ int zend_startup_extensions_mechanism()
 
 int zend_startup_extensions()
 {
+	//zend_llist_apply_with_del 在zend_llist.c 164
+	//zend_extension_startup 是个函数，它会执行
 	zend_llist_apply_with_del(&zend_extensions, (int (*)(void *)) zend_extension_startup);
 	return SUCCESS;
 }

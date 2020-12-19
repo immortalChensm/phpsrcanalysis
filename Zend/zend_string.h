@@ -155,6 +155,8 @@ static zend_always_inline zend_string *zend_string_safe_alloc(size_t n, size_t m
 
 static zend_always_inline zend_string *zend_string_init(const char *str, size_t len, int persistent)
 {
+	//zend_string 定义和声明在zend_types.h文件
+	//163行
 	zend_string *ret = zend_string_alloc(len, persistent);
 
 	memcpy(ZSTR_VAL(ret), str, len);

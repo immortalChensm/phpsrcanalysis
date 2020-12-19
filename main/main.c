@@ -278,12 +278,15 @@ static void php_binary_init(void)
 {
 	char *binary_location = NULL;
 #ifdef PHP_WIN32
+	//win32的看样子好像是要获取php elf文件，但是现在我还真不知道，等看完才知道的
 	binary_location = (char *)malloc(MAXPATHLEN);
 	if (binary_location && GetModuleFileName(0, binary_location, MAXPATHLEN) == 0) {
 		free(binary_location);
 		PG(php_binary) = NULL;
 	}
 #else
+//要执行_sapi_module_struct  cgi_sapi_module结构体变量的成员
+//刚启动时，肯定没有东西
 	if (sapi_module.executable_location) {
 		binary_location = (char *)malloc(MAXPATHLEN);
 		if (binary_location && !strchr(sapi_module.executable_location, '/')) {
@@ -318,6 +321,13 @@ static void php_binary_init(void)
 		}
 	}
 #endif
+/***
+ *  # define PG(v) (core_globals.v)
+    extern ZEND_API struct _php_core_globals core_globals;
+    此全局变量定义在php_globals.h头文件中
+    包括结构体_php_core_globals 声明也在里面了
+ */
+ //给全局core_globals 初始化
 	PG(php_binary) = binary_location;
 }
 /* }}} */
@@ -2034,6 +2044,7 @@ int php_register_extensions(zend_module_entry **ptr, int count)
 static int php_register_extensions_bc(zend_module_entry *ptr, int count)
 {
 	while (count--) {
+		//在zend_API.c  line:2044
 		if (zend_register_internal_module(ptr++) == NULL) {
 			return FAILURE;
  		}
@@ -2079,12 +2090,12 @@ void dummy_invalid_parameter_handler(
  */
 int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_modules, uint num_additional_modules)
 {
-	zend_utility_functions zuf;
+	zend_utility_functions zuf;//后面给该结构体变量初始化
 	zend_utility_values zuv;
 	int retval = SUCCESS, module_number=0;	/* for REGISTER_INI_ENTRIES() */
 	char *php_os;
 	zend_module_entry *module;
-
+//win32在启用socket api时一般会启用WSADATA 我的印象里
 #if defined(PHP_WIN32) || (defined(NETWARE) && defined(USE_WINSOCK))
 	WORD wVersionRequested = MAKEWORD(2, 0);
 	WSADATA wsaData;
@@ -2121,6 +2132,8 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 		return SUCCESS;
 	}
 
+	//保存传递进来的 sapi_module_struct *sf
+	//保存的  cgi_sapi_module 全局变量
 	sapi_module = *sf;
 
 	php_output_startup();
@@ -2137,6 +2150,7 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 #endif
 	gc_globals_ctor();
 
+	//给zuf结构体变更赋值
 	zuf.error_function = php_error_cb;
 	zuf.printf_function = php_printf;
 	zuf.write_function = php_output_wrapper;
@@ -2171,6 +2185,7 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 
 	le_index_ptr = zend_register_list_destructors_ex(NULL, NULL, "index pointer", 0);
 
+	//注册超级常量  在php脚本里可以访问
 	/* Register constants */
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_VERSION", PHP_VERSION, sizeof(PHP_VERSION)-1, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_LONG_CONSTANT("PHP_MAJOR_VERSION", PHP_MAJOR_VERSION, CONST_PERSISTENT | CONST_CS);
@@ -2223,6 +2238,7 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	REGISTER_MAIN_LONG_CONSTANT("PHP_WINDOWS_NT_WORKSTATION", VER_NT_WORKSTATION, CONST_PERSISTENT | CONST_CS);
 #endif
 
+	//给core_globals 全局变量初始化
 	php_binary_init();
 	if (PG(php_binary)) {
 		REGISTER_MAIN_STRINGL_CONSTANT("PHP_BINARY", PG(php_binary), strlen(PG(php_binary)), CONST_PERSISTENT | CONST_CS);
@@ -2230,12 +2246,15 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 		REGISTER_MAIN_STRINGL_CONSTANT("PHP_BINARY", "", 0, CONST_PERSISTENT | CONST_CS);
 	}
 
+	//看名字就是输出注册的常量
 	php_output_register_constants();
 	php_rfc1867_register_constants();
 
 	/* this will read in php.ini, set up the configuration parameters,
 	   load zend extensions and register php function extensions
 	   to be loaded later */
+	//读取配置文件，加载配置选项，加载zend扩展并注册php函数
+	//在php.ini.c 源码文件 382行
 	if (php_init_config() == FAILURE) {
 		return FAILURE;
 	}
@@ -2276,8 +2295,12 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	zuv.html_errors = 1;
 	zuv.import_use_extension = ".php";
 	zuv.import_use_extension_length = (uint)strlen(zuv.import_use_extension);
+	//注册PHP全局超级变量
+	//定义声明：在php_variables.c 867行
 	php_startup_auto_globals();
 	zend_set_utility_values(&zuv);
+	//声明和定义在php_content_types.c文件中
+	//位于49行
 	php_startup_sapi_content_types();
 
 	/* startup extensions statically compiled in */
@@ -2287,6 +2310,8 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	}
 
 	/* start additional PHP extensions */
+	//additional_modules = cgi_module_entry 变量定义在fpm_main.c 中
+	//变量的值在fpm_main.c 1619行
 	php_register_extensions_bc(additional_modules, num_additional_modules);
 
 	/* load and startup extensions compiled as shared objects (aka DLLs)
@@ -2296,10 +2321,13 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	   which is always an internal extension and to be initialized
 	   ahead of all other internals
 	 */
+	//将第三方动态库扩展加载
+	//php.ini.c 252
 	php_ini_register_extensions();
 	zend_startup_modules();
 
 	/* start Zend extensions */
+	//在zend_extension.c 214行
 	zend_startup_extensions();
 
 	zend_collect_module_handlers();

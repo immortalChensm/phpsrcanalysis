@@ -53,7 +53,7 @@
 
 
 typedef struct _php_extension_lists {
-	zend_llist engine;
+	zend_llist engine;//此结构体声明在zend/zend_llist.h头文件中  37行
 	zend_llist functions;
 } php_extension_lists;
 
@@ -359,6 +359,8 @@ static void php_load_zend_extension_cb(void *arg)
 	(void) length;
 #endif
 
+	//在zend_extension.c文件  28行
+
 	if (IS_ABSOLUTE_PATH(filename, length)) {
 		zend_load_extension(filename);
 	} else {
@@ -389,15 +391,29 @@ int php_init_config(void)
 	zend_file_handle fh;
 	zend_string *opened_path = NULL;
 
+	//静态 configuration_hash 全局变量  只限本文件使用
+	//该函数的定义在Zend/zend_hash.c 文件中
+	//就是给configuration_hash 指针赋值用的
 	zend_hash_init(&configuration_hash, 8, NULL, config_zval_dtor, 1);
 
+	//刚启动时，fpm_main.c 真没有看到ini_defaults函数
+	//sapi_module 是个全局变量，它的结构体声明在SAPI.h头文件中 219行
+	//而它的值来源于sapi_module_struct cgi_sapi_module 变量，定义在fpm_main.c 中的857行
+	//sapi_module = cgi_sapi_module
 	if (sapi_module.ini_defaults) {
 		sapi_module.ini_defaults(&configuration_hash);
 	}
 
+	//extension_lists 扩展列表全局变量
+	//extension_lists 声明和定义都在本文件中
+	//(llist_dtor_func_t) free_estring 强制转换后面是个函数
+	//zend_llist_init 函数定义在zend_llist.c 源码文件中 26行
+	//就是把后面的参数当做参数赋值给engine,function
 	zend_llist_init(&extension_lists.engine, sizeof(char *), (llist_dtor_func_t) free_estring, 1);
 	zend_llist_init(&extension_lists.functions, sizeof(char *), (llist_dtor_func_t) free_estring, 1);
 
+	//给全局变量ZEND_API struct _php_core_globals core_globals.open_basedir=open_basedir
+	//此core_globals 声明和定义放在php_globals.h头文件中
 	open_basedir = PG(open_basedir);
 
 	if (sapi_module.php_ini_path_override) {
@@ -525,6 +541,8 @@ int php_init_config(void)
 		efree(default_location);
 
 #else
+		//相关配置常量定义在config.w32.h.in
+		//或在configure.in文件中 找到php.ini文件路径
 		default_location = PHP_CONFIG_FILE_PATH;
 		if (*php_ini_search_path) {
 			strlcat(php_ini_search_path, paths_separator, search_path_size);
@@ -737,6 +755,9 @@ int php_shutdown_config(void)
  */
 void php_ini_register_extensions(void)
 {
+	//php_load_zend_extension_cb 353行加载动态库.so文件，直接打开就可以使用动态库里的函数
+	//zend_llist_apply zend_llist.c 179行
+	//extension_lists.engine 会循环里面的元素，并调用php_load_zend_extension_cb函数，参数就是前面的数据
 	zend_llist_apply(&extension_lists.engine, php_load_zend_extension_cb);
 	zend_llist_apply(&extension_lists.functions, php_load_php_extension_cb);
 

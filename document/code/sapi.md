@@ -54,6 +54,26 @@ struct _sapi_module_struct {
 	const zend_function_entry *additional_functions;
 	unsigned int (*input_filter_init)(void);
 };  
+typedef struct _sapi_globals_struct {
+	void *server_context;
+	sapi_request_info request_info;
+	sapi_headers_struct sapi_headers;
+	int64_t read_post_bytes;
+	unsigned char post_read;
+	unsigned char headers_sent;
+	zend_stat_t global_stat;
+	char *default_mimetype;
+	char *default_charset;
+	HashTable *rfc1867_uploaded_files;
+	zend_long post_max_size;
+	int options;
+	zend_bool sapi_started;
+	double global_request_time;
+	HashTable known_post_content_types;
+	zval callback_func;
+	zend_fcall_info_cache fci_cache;
+} sapi_globals_struct;
+
 code fileName:main/SAPI.c    
 # define SG(v) (sapi_globals.v)
 extern SAPI_API sapi_globals_struct sapi_globals;

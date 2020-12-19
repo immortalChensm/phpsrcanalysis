@@ -866,6 +866,10 @@ static zend_bool php_auto_globals_create_request(zend_string *name)
 
 void php_startup_auto_globals(void)
 {
+	//zend_string_init 函数声明和定义在zend_string.h中
+	//位于156行
+	//zend_register_auto_global 声明和定义在zend_compile.c文件中
+	//位于1657行
 	zend_register_auto_global(zend_string_init("_GET", sizeof("_GET")-1, 1), 0, php_auto_globals_create_get);
 	zend_register_auto_global(zend_string_init("_POST", sizeof("_POST")-1, 1), 0, php_auto_globals_create_post);
 	zend_register_auto_global(zend_string_init("_COOKIE", sizeof("_COOKIE")-1, 1), 0, php_auto_globals_create_cookie);
