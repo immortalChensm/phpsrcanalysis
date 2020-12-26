@@ -50,8 +50,20 @@
 #else
 #define TRANSLATE_SLASHES_LOWER(path)
 #endif
-
-
+typedef struct _zend_llist_element {
+	struct _zend_llist_element *next;
+	struct _zend_llist_element *prev;
+	char data[1]; /* Needs to always be last in the struct */
+} zend_llist_element;
+typedef struct _zend_llist {
+	zend_llist_element *head;
+	zend_llist_element *tail;
+	size_t count;
+	size_t size;
+	llist_dtor_func_t dtor;
+	unsigned char persistent;
+	zend_llist_element *traverse_ptr;
+} zend_llist;
 typedef struct _php_extension_lists {
 	zend_llist engine;//此结构体声明在zend/zend_llist.h头文件中  37行
 	zend_llist functions;

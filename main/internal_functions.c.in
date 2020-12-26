@@ -27,8 +27,52 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-@EXT_INCLUDE_CODE@
+struct _zend_module_dep {
+	const char *name;		/* module name */
+	const char *rel;		/* version relationship: NULL (exists), lt|le|eq|ge|gt (to given version) */
+	const char *version;	/* version */
+	unsigned char type;		/* dependency type */
+};
+typedef struct _zend_function_entry {
+	const char *fname;
+	void (*handler)(INTERNAL_FUNCTION_PARAMETERS);
+	const struct _zend_internal_arg_info *arg_info;
+	uint32_t num_args;
+	uint32_t flags;
+} zend_function_entry;
 
+struct _zend_module_entry {
+    unsigned short size;
+    unsigned int zend_api;
+    unsigned char zend_debug;
+    unsigned char zts;
+    const struct _zend_ini_entry *ini_entry;
+    const struct _zend_module_dep *deps;
+    const char *name;
+    const struct _zend_function_entry *functions;
+    int (*module_startup_func)(INIT_FUNC_ARGS);
+    int (*module_shutdown_func)(SHUTDOWN_FUNC_ARGS);
+    int (*request_startup_func)(INIT_FUNC_ARGS);
+    int (*request_shutdown_func)(SHUTDOWN_FUNC_ARGS);
+    void (*info_func)(ZEND_MODULE_INFO_FUNC_ARGS);
+    const char *version;
+    size_t globals_size;
+#ifdef ZTS
+    ts_rsrc_id* globals_id_ptr;
+#else
+    void* globals_ptr;
+#endif
+    void (*globals_ctor)(void *global);
+    void (*globals_dtor)(void *global);
+    int (*post_deactivate_func)(void);
+    int module_started;
+    unsigned char type;
+    void *handle;
+    int module_number;
+    const char *build_id;
+};
+@EXT_INCLUDE_CODE@
+//会拿到phpext目录里的文件
 static zend_module_entry *php_builtin_extensions[] = {
 @EXT_MODULE_PTRS@
 };
@@ -37,6 +81,7 @@ static zend_module_entry *php_builtin_extensions[] = {
 
 PHPAPI int php_register_internal_extensions(void)
 {
+	//main.c 2024
 	return php_register_extensions(php_builtin_extensions, EXTCOUNT);
 }
 

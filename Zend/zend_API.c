@@ -1978,6 +1978,11 @@ ZEND_API void zend_destroy_modules(void) /* {{{ */
 	zend_hash_graceful_reverse_destroy(&module_registry);
 }
 /* }}} */
+//@EXT_INCLUDE_CODE@
+////会拿到phpext目录里的文件
+//static zend_module_entry *php_builtin_extensions[] = {
+//@EXT_MODULE_PTRS@
+//};
 
 ZEND_API zend_module_entry* zend_register_module_ex(zend_module_entry *module) /* {{{ */
 {
@@ -2015,10 +2020,17 @@ ZEND_API zend_module_entry* zend_register_module_ex(zend_module_entry *module) /
 		}
 	}
 
+	//模块的名字
 	name_len = strlen(module->name);
+	//模块名字
 	lcname = zend_string_alloc(name_len, 1);
+	//赋值拷贝
 	zend_str_tolower_copy(ZSTR_VAL(lcname), module->name, name_len);
 
+	//注册模块，模块名，模块对象
+	//module_registry 全局对象
+	//module_registry hash表存储
+	//取出来时，能根据模块名取
 	if ((module_ptr = zend_hash_add_mem(&module_registry, lcname, module, sizeof(zend_module_entry))) == NULL) {
 		zend_error(E_CORE_WARNING, "Module '%s' already loaded", module->name);
 		zend_string_release(lcname);
@@ -2027,6 +2039,8 @@ ZEND_API zend_module_entry* zend_register_module_ex(zend_module_entry *module) /
 	module = module_ptr;
 	EG(current_module) = module;
 
+	//注册模块里的函数列表
+	//zend_register_functions 2126
 	if (module->functions && zend_register_functions(NULL, module->functions, NULL, module->type)==FAILURE) {
 		zend_hash_del(&module_registry, lcname);
 		zend_string_release(lcname);
@@ -2040,6 +2054,12 @@ ZEND_API zend_module_entry* zend_register_module_ex(zend_module_entry *module) /
 	return module;
 }
 /* }}} */
+
+//@EXT_INCLUDE_CODE@
+////会拿到phpext目录里的文件
+//static zend_module_entry *php_builtin_extensions[] = {
+//@EXT_MODULE_PTRS@
+//};
 
 ZEND_API zend_module_entry* zend_register_internal_module(zend_module_entry *module) /* {{{ */
 {
@@ -2113,12 +2133,17 @@ ZEND_API void zend_check_magic_method_implementation(const zend_class_entry *ce,
 	}
 }
 /* }}} */
-
+// php ext 内置扩展库目录下的模块加载
 /* registers all functions in *library_functions in the function hash */
+//scope 类加载参数
+//zend_function_entry 扩展模块函数数组
+//
 ZEND_API int zend_register_functions(zend_class_entry *scope, const zend_function_entry *functions, HashTable *function_table, int type) /* {{{ */
 {
 	const zend_function_entry *ptr = functions;
 	zend_function function, *reg_function;
+	//内部函数结构体
+	//对internal_function的操作就是对function的操作  毕竟他们是指向同一块内存
 	zend_internal_function *internal_function = (zend_internal_function *)&function;
 	int count=0, unload=0;
 	HashTable *target_function_table = function_table;
@@ -2135,13 +2160,22 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, const zend_functio
 		error_type = E_WARNING;
 	}
 
+	/***
+	 * zend_globlas.h 70
+	 */
 	if (!target_function_table) {
+		//# define CG(v) (compiler_globals.v)
+		//extern ZEND_API struct _zend_compiler_globals compiler_globals;  全局变量对象
+		//内部ext目录扩展最终会添加到全局compiler_globals.function_table[] = 内部ext目录扩展函数
+		//compiler_globals.function_table[函数名] = 函数
+		//compiler_globals.function_table[ptr->fname] = ptr->handler
 		target_function_table = CG(function_table);
 	}
 	internal_function->type = ZEND_INTERNAL_FUNCTION;
 	internal_function->module = EG(current_module);
 	memset(internal_function->reserved, 0, ZEND_MAX_RESERVED_RESOURCES * sizeof(void*));
 
+	//有就是类名注册
 	if (scope) {
 		class_name_len = ZSTR_LEN(scope->name);
 		if ((lc_class_name = zend_memrchr(ZSTR_VAL(scope->name), '\\', class_name_len))) {
@@ -2153,12 +2187,16 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, const zend_functio
 		}
 	}
 
+	//_zend_function_entry 的函数名
 	while (ptr->fname) {
+		//函数名
 		fname_len = strlen(ptr->fname);
+		//函数地址
 		internal_function->handler = ptr->handler;
 		internal_function->function_name = zend_new_interned_string(zend_string_init(ptr->fname, fname_len, 1));
 		internal_function->scope = scope;
 		internal_function->prototype = NULL;
+		//函数标志
 		if (ptr->flags) {
 			if (!(ptr->flags & ZEND_ACC_PPP_MASK)) {
 				if (ptr->flags != ZEND_ACC_DEPRECATED && scope) {
@@ -2171,6 +2209,7 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, const zend_functio
 		} else {
 			internal_function->fn_flags = ZEND_ACC_PUBLIC;
 		}
+		//函数参数信息
 		if (ptr->arg_info) {
 			zend_internal_function_info *info = (zend_internal_function_info*)ptr->arg_info;
 
@@ -2239,12 +2278,19 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, const zend_functio
 		zend_str_tolower_copy(ZSTR_VAL(lowercase_name), ptr->fname, fname_len);
 		lowercase_name = zend_new_interned_string(lowercase_name);
 		reg_function = malloc(sizeof(zend_internal_function));
+
+		//把模块里的函数添加到reg_function function同internal_function一样指向同一块内存的
 		memcpy(reg_function, &function, sizeof(zend_internal_function));
+
+
+		//把函数对象添加到target_function_table中
+		//把模块里的函数列表分别注册
 		if (zend_hash_add_ptr(target_function_table, lowercase_name, reg_function) == NULL) {
 			unload=1;
 			free(reg_function);
 			zend_string_release(lowercase_name);
 			break;
+
 		}
 
 		/* If types of arguments have to be checked */
@@ -2323,6 +2369,7 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, const zend_functio
 		zend_unregister_functions(functions, count, target_function_table);
 		return FAILURE;
 	}
+	//类的方法注册
 	if (scope) {
 		scope->constructor = ctor;
 		scope->destructor = dtor;

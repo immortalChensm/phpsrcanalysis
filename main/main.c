@@ -116,6 +116,8 @@
 #endif
 /* }}} */
 
+//php_register_internal_extensions in internal_functions.c.in
+//调用php_register_extensions(php_builtin_extensions, EXTCOUNT);
 PHPAPI int (*php_register_internal_extensions_func)(void) = php_register_internal_extensions;
 
 #ifndef ZTS
@@ -2023,8 +2025,14 @@ int php_register_extensions(zend_module_entry **ptr, int count)
 {
 	zend_module_entry **end = ptr + count;
 
+	//@EXT_INCLUDE_CODE@
+	////会拿到phpext目录里的文件
+	//static zend_module_entry *php_builtin_extensions[] = {
+	//@EXT_MODULE_PTRS@
+	//};
 	while (ptr < end) {
 		if (*ptr) {
+		    //Zend_API.c 2044
 			if (zend_register_internal_module(*ptr)==NULL) {
 				return FAILURE;
 			}
@@ -2125,7 +2133,9 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 
 	module_shutdown = 0;
 	module_startup = 1;
+	//SAPI.c 549
 	sapi_initialize_empty_request();
+	//SAPI.c 438
 	sapi_activate();
 
 	if (module_initialized) {
@@ -2303,7 +2313,13 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	//位于49行
 	php_startup_sapi_content_types();
 
+	//注册php内置扩展函数
 	/* startup extensions statically compiled in */
+	//2024 php_register_extensions
+	//会加载内置模块 php_builtin_extensions
+	//加载内置所有模块，并用全局对象保存模块里的所有函数
+	//compiler_globals.function_table[ptr->fname] = ptr->handler
+	//zend_API.c 2171
 	if (php_register_internal_extensions_func() == FAILURE) {
 		php_printf("Unable to start builtin modules\n");
 		return FAILURE;

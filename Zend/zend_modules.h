@@ -123,6 +123,7 @@ struct _zend_module_dep {
 };
 
 BEGIN_EXTERN_C()
+//typedef struct _zend_array HashTable; Zend_types.h 176
 extern ZEND_API HashTable module_registry;
 
 void module_destructor(zend_module_entry *module);
